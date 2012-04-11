@@ -15,13 +15,13 @@ Here's a sample of a processor class that handles incoming messages:
     end
 
 
-h2. Usage
+== Usage
 
-    gem 'activemessaging', '0.7.1',  :git => 'git@github.com:lcn-com/activemessaging.git', :require => false
-    # do not require in Gemfile because some of the environment variables are not available at that point
+  $ gem 'activemessaging', '0.7.1',  :git => 'git@github.com:lcn-com/activemessaging.git', :require => false
+  $ # do not require in Gemfile because some of the environment variables are not available at that point
     
-    Add to initializers
-    require 'activemessaging'
+  $ # Add to initializers
+  $ require 'activemessaging'
 
 h1. Support
 
