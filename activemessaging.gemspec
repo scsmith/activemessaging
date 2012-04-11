@@ -16,7 +16,7 @@ Gem::Specification.new do |s|
     "README"
   ]
   s.files = [
-    "README",
+    "README.rdoc",
      "Rakefile",
      "VERSION",
      "activemessaging.gemspec",
