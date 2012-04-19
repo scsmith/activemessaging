@@ -1,6 +1,7 @@
 require 'yaml'
 require 'ostruct'
 require 'erb'
+require "thread"
 
 module ActiveMessaging
 
@@ -18,7 +19,7 @@ module ActiveMessaging
     @@running = true
     @@connection_threads = {}
     @@guard = Mutex.new
- 
+
     class <<self
 
       # Starts up an message listener to start polling for messages on each configured connection, and dispatching processing
@@ -50,7 +51,7 @@ module ActiveMessaging
             ActiveMessaging.logger.error "ActiveMessaging: thread[#{name}]: receive loop terminated"
           end
         end
-        
+
         while @@running
           trap("TERM", "EXIT")
           living = false
@@ -60,7 +61,7 @@ module ActiveMessaging
         end
         ActiveMessaging.logger.error "All connection threads have died..."
       rescue Interrupt
-        ActiveMessaging.logger.error "\n<<Interrupt received>>\n"  
+        ActiveMessaging.logger.error "\n<<Interrupt received>>\n"
       rescue Object=>exception
         ActiveMessaging.logger.error "#{exception.class.name}: #{exception.message}\n\t#{exception.backtrace.join("\n\t")}"
         raise exception
@@ -69,11 +70,11 @@ module ActiveMessaging
         stop
         ActiveMessaging.logger.error "=> END"
       end
-      
+
       def stop
         # first tell the threads to stop their looping, so they'll stop when next complete a receive/dispatch cycle
         @@running = false
-        
+
         # if they are dispatching (i.e. !thread[:message].nil?), wait for them to finish
         # if they are receiving (i.e. thread[:message].nil?), stop them by raising exception
         dispatching = true
@@ -107,7 +108,7 @@ module ActiveMessaging
         unsubscribe
         disconnect
       end
-      
+
       def connection broker_name='default'
         return @@connections[broker_name] if @@connections.has_key?(broker_name)
         config = load_connection_configuration(broker_name)
@@ -119,12 +120,12 @@ module ActiveMessaging
       def register_adapter adapter_name, adapter_class
         adapters[adapter_name] = adapter_class
       end
-      
+
       def filter filter, options = {}
         options[:direction] = :bidirectional if options[:direction].nil?
         filters << [filter, options]
       end
-      
+
       def subscribe
         subscriptions.each { |key, subscription| subscription.subscribe }
       end
@@ -152,7 +153,7 @@ module ActiveMessaging
         end
         yield(message)
       end
-      
+
       def apply_filter?(direction, details, options)
         # check that it is the correct direction
         result = if direction.to_sym == options[:direction] || options[:direction] == :bidirectional
@@ -201,7 +202,7 @@ module ActiveMessaging
           # Dispatcher.reset_application_after_dispatch
         end
       end
-      
+
       def dispatch(message)
         @@guard.synchronize {
           begin
@@ -221,11 +222,11 @@ module ActiveMessaging
         abort = false
         processed = false
 
-        subscriptions.each do |key, subscription| 
+        subscriptions.each do |key, subscription|
           if message.matches_subscription?(subscription) then
             processed = true
             routing = {
-              :receiver=>subscription.processor_class, 
+              :receiver=>subscription.processor_class,
               :destination=>subscription.destination,
               :direction => :incoming
             }
@@ -267,9 +268,9 @@ module ActiveMessaging
         raise "You already defined #{destination_name} to #{named_destinations[destination_name].value}" if named_destinations.has_key?(destination_name)
         named_destinations[destination_name] = Destination.new(destination_name, destination, publish_headers, broker)
       end
-      
+
       alias queue destination
-      
+
       def find_destination destination_name
         real_destination = named_destinations[destination_name]
         raise "You have not yet defined a destination named #{destination_name}. Destinations currently defined are [#{named_destinations.keys.join(',')}]" if real_destination.nil?
@@ -289,10 +290,10 @@ module ActiveMessaging
       def publish destination_name, body, publisher=nil, headers={}, timeout=10
         raise "You cannot have a nil or empty destination name." if destination_name.nil?
         raise "You cannot have a nil or empty message body." if (body.nil? || body.empty?)
-        
+
         real_destination = find_destination(destination_name)
         details = {
-          :publisher => publisher, 
+          :publisher => publisher,
           :destination => real_destination,
           :direction => :outgoing
         }
@@ -308,13 +309,13 @@ module ActiveMessaging
           raise toe
         end
       end
-      
+
       def receive destination_name, receiver=nil, subscribe_headers={}, timeout=10
         raise "You cannot have a nil or empty destination name." if destination_name.nil?
         conn = nil
         dest = find_destination destination_name
         config = load_connection_configuration(dest.broker_name)
-        subscribe_headers['id'] = receiver.name.underscore unless (receiver.nil? or subscribe_headers.key? 'id') 
+        subscribe_headers['id'] = receiver.name.underscore unless (receiver.nil? or subscribe_headers.key? 'id')
         Timeout.timeout timeout do
           conn = Gateway.adapters[config[:adapter]].new(config)
           conn.subscribe(dest.value, subscribe_headers)
@@ -328,7 +329,7 @@ module ActiveMessaging
       ensure
         conn.disconnect unless conn.nil?
       end
-      
+
       def processor_group group_name, *processors
         if processor_groups.has_key? group_name
           processor_groups[group_name] =  processor_groups[group_name] + processors
@@ -358,7 +359,7 @@ module ActiveMessaging
         end
         @@current_processor_group
       end
-      
+
       def load_connection_configuration(label='default')
         @broker_yml = YAML::load(ERB.new(IO.read(File.join(APP_ROOT, 'config', 'broker.yml'))).result) if @broker_yml.nil?
         if label == 'default'
@@ -370,14 +371,14 @@ module ActiveMessaging
         config[:adapter] ||= :stomp
         return config
       end
-      
+
     end
 
   end
 
   class Subscription
     attr_accessor :destination, :processor_class, :subscribe_headers
-        
+
     def initialize(destination, processor_class, subscribe_headers = {})
       @destination, @processor_class, @subscribe_headers = destination, processor_class, subscribe_headers
       subscribe_headers['id'] = processor_class.name.underscore unless subscribe_headers.key? 'id'
@@ -385,7 +386,7 @@ module ActiveMessaging
 
     def subscribe
       ActiveMessaging.logger.error "=> Subscribing to #{destination.value} (processed by #{processor_class})"
-      Gateway.connection(@destination.broker_name).subscribe(@destination.value, subscribe_headers) 
+      Gateway.connection(@destination.broker_name).subscribe(@destination.value, subscribe_headers)
     end
 
     def unsubscribe
@@ -404,13 +405,13 @@ module ActiveMessaging
       @publish_headers.reverse_merge! DEFAULT_PUBLISH_HEADERS
       @wildcard = wildcard_match_exp_for(value) if (value =~ /\*/)
     end
-    
+
     def to_s
       "<destination: #{broker_name} :#{name}=>'#{value}'>"
     end
-    
+
     private
-    
+
     def wildcard_match_exp_for(destination)
       exp = destination.to_s.gsub(/[.]/, '\.').gsub(/[*]/, '[^.*]+').gsub(/([>].*$)/, '.*') + '$'
       Regexp.new(exp)
