@@ -361,11 +361,11 @@ module ActiveMessaging
       end
 
       def load_connection_configuration(label='default')
-        @broker_yml = YAML::load(ERB.new(IO.read(File.join(APP_ROOT, 'config', 'broker.yml'))).result) if @broker_yml.nil?
+        @broker_yml = YAML::load(ERB.new(IO.read(File.join(Rails.root, 'config', 'broker.yml'))).result) if @broker_yml.nil?
         if label == 'default'
-          config = @broker_yml[APP_ENV].symbolize_keys
+          config = @broker_yml[Rails.env].symbolize_keys
         else
-          config = @broker_yml[APP_ENV][label].symbolize_keys
+          config = @broker_yml[Rails.env][label].symbolize_keys
         end
         config[:adapter] = config[:adapter].to_sym if config[:adapter]
         config[:adapter] ||= :stomp
