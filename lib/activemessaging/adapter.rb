@@ -15,7 +15,6 @@ module ActiveMessaging
       @@logger = ActiveMessaging.logger unless defined?(@@logger)
       @@logger
     end
-
   end
 
 end

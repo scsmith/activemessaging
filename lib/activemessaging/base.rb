@@ -32,9 +32,8 @@ module ActiveMessaging
     require 'activemessaging/processor'
     require 'activemessaging/filter'
     require 'activemessaging/trace_filter'
-
     # load all under the adapters dir
-    Dir[File.join(ROOT, 'lib', 'activemessaging', 'adapters', '*.rb')].each do |a|
+    Dir[File.join(ROOT, 'activemessaging', 'adapters', '*.rb')].each do |a|
       begin
         adapter_name = File.basename(a, ".rb")
         require 'activemessaging/adapters/' + adapter_name
