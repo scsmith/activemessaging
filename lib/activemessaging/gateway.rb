@@ -67,8 +67,14 @@ module ActiveMessaging
         raise exception
       ensure
         ActiveMessaging.logger.error "Cleaning up..."
-        stop
-        ActiveMessaging.logger.error "=> END"
+        begin
+          Timeout::timeout(30) { stop }
+        rescue Timeout::Error => e
+          ActiveMessaging.logger.error "Couldn't clean up correctly"
+          ActiveMessaging.logger.error @@connection_threads.map { |name, thread| thread[:message].inspect }.join(' - ')
+        ensure
+          ActiveMessaging.logger.error "=> END"
+        end
       end
 
       def stop
